@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AXIOM RIFT - Multi-Metric Wave &amp; Particle Sandbox</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="studio-shell">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">AR</div>
+          <div>
+            <h1>AXIOM RIFT</h1>
+            <p class="tagline">Multi-Metric Wave PDE &amp; Particle Refraction Sandbox</p>
+          </div>
+        </div>
+
+        <div class="chamber-bar">
+          <label for="chamber-select">Preset</label>
+          <select id="chamber-select"></select>
+        </div>
+
+        <div class="transport-bar">
+          <button id="btn-play" class="btn primary" title="Space">Pause</button>
+          <button id="btn-step" class="btn" title="Advance one 60Hz tick">Step</button>
+          <select id="speed-select" class="speed-select" title="Simulation Speed">
+            <option value="0.5">0.5x</option>
+            <option value="1" selected>1x</option>
+            <option value="1.5">1.5x</option>
+            <option value="2">2x</option>
+          </select>
+          <button id="btn-undo" class="btn" title="Undo Paint (Ctrl+Z)" disabled>Undo</button>
+          <button id="btn-redo" class="btn" title="Redo Paint (Ctrl+Y)" disabled>Redo</button>
+          <button id="btn-reset" class="btn">Reload</button>
+          <button id="btn-clear" class="btn danger">Clear</button>
+          <button id="btn-audio" class="btn audio-btn">Audio: Off</button>
+          <button id="btn-guide" class="btn" title="Controls and Guide">Guide</button>
+        </div>
+      </header>
+
+      <main class="workspace">
+        <aside class="sidebar-left">
+          <section class="panel">
+            <h2>Tools</h2>
+            <div class="tool-grid">
+              <button class="tool-btn active" data-tool="pulse" title="Click: Wave Pulse | Drag: Launch Particle">
+                Pulse / Fire
+              </button>
+              <button class="tool-btn" data-tool="paint" title="Paint selected rule with brush">
+                Brush
+              </button>
+              <button class="tool-btn" data-tool="rect" title="Drag rectangle of selected rule">
+                Slab
+              </button>
+              <button class="tool-btn" data-tool="emitter" title="Drag to place directional emitter">
+                Emitter
+              </button>
+              <button class="tool-btn" data-tool="detector" title="Click to place hit counter">
+                Detector
+              </button>
+              <button class="tool-btn" data-tool="erase" title="Click an emitter or detector to remove">
+                Remove
+              </button>
+            </div>
+
+            <div class="brush-control">
+              <div class="row-between">
+                <span>Brush Radius</span>
+                <span id="brush-size-label" class="mono">28px</span>
+              </div>
+              <input id="brush-size" type="range" min="10" max="80" value="28" />
+            </div>
+
+            <div class="layer-toggles">
+              <label><input id="toggle-waves" type="checkbox" checked /> Waves</label>
+              <label><input id="toggle-trails" type="checkbox" checked /> Trails</label>
+              <label><input id="toggle-metric" type="checkbox" checked /> Unit Ball</label>
+            </div>
+          </section>
+
+          <section class="panel grow">
+            <div class="row-between">
+              <h2>Space Rules</h2>
+              <span class="hint mono">Keys 1-7</span>
+            </div>
+            <div id="law-palette" class="law-palette"></div>
+          </section>
+        </aside>
+
+        <section class="viewport-wrap">
+          <div class="canvas-frame">
+            <canvas id="manifold-canvas" width="960" height="560"></canvas>
+            <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+          </div>
+          <div class="canvas-footer">
+            <span>Left-click/drag: active tool | Right-click: wave pulse | Hover: local unit ball | Ctrl+Z: undo</span>
+            <div class="io-actions">
+              <button id="btn-export" class="btn small">Export JSON</button>
+              <button id="btn-import" class="btn small">Import JSON</button>
+              <input id="file-import" type="file" accept=".json" class="hidden" />
+            </div>
+          </div>
+        </section>
+
+        <aside class="sidebar-right">
+          <section class="panel" id="chamber-brief">
+            <div class="brief-title" id="brief-title"></div>
+            <div class="brief-sub" id="brief-sub"></div>
+            <p class="brief-desc" id="brief-desc"></p>
+          </section>
+
+          <section class="panel logic-panel hidden" id="logic-panel">
+            <h2>Particle Half-Adder</h2>
+            <div class="logic-controls">
+              <button id="btn-logic-a" class="logic-toggle on">INPUT A: 1</button>
+              <button id="btn-logic-b" class="logic-toggle on">INPUT B: 1</button>
+              <button id="btn-logic-fire" class="btn primary full">Fire Logic Pulse</button>
+            </div>
+            <div class="logic-outputs">
+              <div class="led" id="led-sum">
+                <span>SUM (A XOR B)</span>
+                <strong>0</strong>
+              </div>
+              <div class="led" id="led-carry">
+                <span>CARRY (A AND B)</span>
+                <strong>0</strong>
+              </div>
+            </div>
+            <div class="truth-presets" aria-label="Test Truth Table Row">
+              <button class="truth-btn" data-a="0" data-b="0">0+0</button>
+              <button class="truth-btn" data-a="1" data-b="0">1+0</button>
+              <button class="truth-btn" data-a="0" data-b="1">0+1</button>
+              <button class="truth-btn" data-a="1" data-b="1">1+1</button>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="row-between">
+              <h2>Energy Mismatch</h2>
+              <span class="legend mono"><i class="dot-amber"></i>dH <i class="dot-cyan"></i>Wave</span>
+            </div>
+            <canvas id="scope-canvas" width="268" height="72"></canvas>
+            <div id="telemetry-stats" class="stats-grid"></div>
+          </section>
+
+          <section class="panel grow">
+            <h2>Border Crossings</h2>
+            <div id="event-feed" class="event-feed"></div>
+          </section>
+        </aside>
+      </main>
+    </div>
+
+    <div id="guide-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="guide-title">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h2 id="guide-title">How AXIOM RIFT Works</h2>
+          <button id="btn-close-guide" class="btn small">Close (Esc)</button>
+        </div>
+        <div class="modal-body">
+          <p class="modal-lead">
+            Instead of painting physical materials like glass or water, you paint different rules for distance, inertia, and time direction onto a shared 2D grid.
+          </p>
+          <div class="guide-grid">
+            <div class="guide-box">
+              <h3>1. Watch Space Change Shape</h3>
+              <p>Hover anywhere to inspect the local unit ball around your cursor. Right-click to drop a wave ripple and watch it shift between circular (<code>L2</code>), diamond (<code>L1</code>), and square (<code>L∞</code>) fronts.</p>
+            </div>
+            <div class="guide-box">
+              <h3>2. Physics Logic Gate</h3>
+              <p>Select <strong>Particle Half-Adder</strong> from the Preset menu to run 1-bit binary addition (<code>SUM</code> and <code>CARRY</code>) using particle collisions and 45 deg Hyperbolic bounce seams.</p>
+            </div>
+            <div class="guide-box">
+              <h3>3. Controls and Shortcuts</h3>
+              <ul>
+                <li><code>Space</code>: Play or Pause</li>
+                <li><code>1-7</code>: Select rule and switch to Brush</li>
+                <li><code>Right-Click</code>: Drop a wave ripple</li>
+                <li><code>Ctrl+Z / Ctrl+Y</code>: Undo or Redo paint</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="./src/ui/app.js"></script>
+  </body>
+</html>
