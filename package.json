@@ -1,0 +1,28 @@
+{
+  "name": "axiom-rift",
+  "version": "1.0.0",
+  "description": "2D wave and particle sandbox where different regions obey incompatible distance metrics, inertia rules, and time direction.",
+  "type": "module",
+  "author": "Vaibhav Verma",
+  "license": "MIT",
+  "homepage": "https://vaavgit.github.io/axiom-rift/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vaavgit/axiom-rift.git"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "keywords": [
+    "physics-sandbox",
+    "finsler-geometry",
+    "wave-equation",
+    "non-euclidean",
+    "webaudio",
+    "canvas"
+  ],
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test tests/engine.test.mjs"
+  }
+}
