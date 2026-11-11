@@ -4,6 +4,7 @@ import http from 'node:http';
 
 import {
   LAW_INDEX,
+  directionalPhaseSpeed,
   metricNorm,
   unitBallRadius,
 } from '../src/engine/laws.js';
@@ -28,8 +29,8 @@ test('Metric norms and Finsler unit-ball geometry', () => {
   assert.equal(metricNorm(LAW_INDEX.CHEBYSHEV, -3, 7), 7);
 });
 
-test('Generalized Metric Snell Law exhibits asymmetric TIR and Bohr shell quantization', () => {
-  // 45° incidence into Hyperbolic (c ~ 1.50 > 1.0) triggers Metric Total Internal Reflection
+test('Generalized Snell Law obeys refraction invariant, energy-conserving TIR, and shell snap', () => {
+  // Elastic TIR must report zero energy defect and true momentum recoil impulse
   const tir = resolveFaultTransition(
     140,
     0,
@@ -40,60 +41,60 @@ test('Generalized Metric Snell Law exhibits asymmetric TIR and Bohr shell quanti
   );
   assert.equal(tir.outcome, 'METRIC_TIR');
   assert.equal(tir.reflected, true);
-  assert.ok(Math.abs(tir.vx) < 1e-3 && tir.vy > 130, `Expected downward reflection, got (${tir.vx}, ${tir.vy})`);
+  assert.ok(tir.defect < 1e-6, `Elastic TIR should have ~0 energy defect, got ${tir.defect}`);
+  assert.ok(tir.impulse > 190, `Elastic TIR should report real momentum impulse, got ${tir.impulse}`);
+  assert.ok(Math.abs(tir.vx) < 1e-3 && tir.vy > 130);
 
-  // Normal incidence (0°) into Hyperbolic refracts cleanly without TIR
+  // Quantitative Snell invariant check: sin(thetaR) / sin(thetaI) == cB / cA
+  const angleIn = Math.PI / 6; // 30 deg
   const refr = resolveFaultTransition(
-    140,
-    0,
+    100 * Math.cos(angleIn),
+    100 * Math.sin(angleIn),
     LAW_INDEX.EUCLIDEAN,
-    LAW_INDEX.HYPERBOLIC,
+    LAW_INDEX.CHEBYSHEV,
     1,
     0
   );
   assert.equal(refr.outcome, 'REFRACT');
   assert.equal(refr.reflected, false);
-  assert.ok(refr.defect > 0);
+  const outAngle = Math.atan2(refr.vy, refr.vx);
+  const cA = directionalPhaseSpeed(LAW_INDEX.EUCLIDEAN, angleIn);
+  const cB = directionalPhaseSpeed(LAW_INDEX.CHEBYSHEV, outAngle);
+  const lhs = Math.sin(refr.thetaR) / cB;
+  const rhs = Math.sin(refr.thetaI) / cA;
+  assert.ok(Math.abs(lhs - rhs) < 1e-3, `Snell invariant mismatch: ${lhs} vs ${rhs}`);
 
-  // Crossing into Quantized snaps speed to a discrete Bohr shell (55, 100, 145, 190)
-  const quant = resolveFaultTransition(
-    118,
-    0,
-    LAW_INDEX.EUCLIDEAN,
-    LAW_INDEX.QUANTIZED,
-    1,
-    0
-  );
+  const quant = resolveFaultTransition(118, 0, LAW_INDEX.EUCLIDEAN, LAW_INDEX.QUANTIZED, 1, 0);
   assert.equal(quant.outcome, 'QUANTUM_SNAP');
   const outSpeed = Math.hypot(quant.vx, quant.vy);
-  assert.ok([55, 100, 145, 190].some((s) => Math.abs(outSpeed - s) < 1e-3), `Speed ${outSpeed} not quantized`);
+  assert.ok([55, 100, 145, 190].some((s) => Math.abs(outSpeed - s) < 1e-3));
 });
 
-test('Multi-metric WaveField generates circular (L2), diamond (L1), and square (L∞) wavefronts', () => {
+test('Multi-metric WaveField produces quantitative L2 circle, L1 diamond (~0.71), and L∞ square (~1.41)', () => {
   function measureAspectRatio(lawIndex) {
-    const sim = new Simulation(100, 100, 5);
+    const sim = new Simulation(120, 120, 5);
     sim.manifold.fill(lawIndex);
-    const cx = 50;
-    const cy = 50;
-    sim.waveField.injectWorld(cx * 5 + 2.5, cy * 5 + 2.5, 3.0, 2.0);
-    for (let i = 0; i < 36; i++) {
+    const cx = 60;
+    const cy = 60;
+    sim.waveField.injectWorld(cx * 5 + 2.5, cy * 5 + 2.5, 1.4, 2.2);
+    for (let i = 0; i < 42; i++) {
       sim.waveField.step();
     }
 
     const u = sim.waveField.u;
-    const threshold = 0.015;
+    const threshold = 0.008;
     let maxAxis = 0;
     let maxDiag = 0;
 
-    for (let d = 1; d < 42; d++) {
-      if (Math.abs(u[cy * 100 + (cx + d)]) > threshold) maxAxis = d;
+    for (let d = 1; d < 50; d++) {
+      if (Math.abs(u[cy * 120 + (cx + d)]) > threshold) maxAxis = d;
       const diagCell = Math.round(d * Math.SQRT1_2);
-      if (Math.abs(u[(cy + diagCell) * 100 + (cx + diagCell)]) > threshold) {
+      if (Math.abs(u[(cy + diagCell) * 120 + (cx + diagCell)]) > threshold) {
         maxDiag = Math.hypot(diagCell, diagCell);
       }
-      assert.ok(Number.isFinite(u[cy * 100 + (cx + d)]), 'Wave value must stay finite');
     }
-    assert.ok(maxAxis > 10, `Wave did not propagate in law ${lawIndex}`);
+    assert.equal(sim.waveField.clampedCount, 0);
+    assert.ok(maxAxis > 12, `Wave did not propagate in law ${lawIndex}`);
     return maxDiag / maxAxis;
   }
 
@@ -101,70 +102,93 @@ test('Multi-metric WaveField generates circular (L2), diamond (L1), and square (
   const ratioL1 = measureAspectRatio(LAW_INDEX.TAXICAB);
   const ratioLInf = measureAspectRatio(LAW_INDEX.CHEBYSHEV);
 
-  assert.ok(ratioL2 > 0.90 && ratioL2 < 1.10, `Euclidean ratio should be ~1.0 (circle), got ${ratioL2}`);
-  assert.ok(ratioL1 < 0.85, `Taxicab ratio should be < 0.85 (diamond), got ${ratioL1}`);
-  assert.ok(ratioLInf > 1.15, `Chebyshev ratio should be > 1.15 (square), got ${ratioLInf}`);
+  assert.ok(ratioL2 >= 0.94 && ratioL2 <= 1.06, `Euclidean ratio should be ~1.00, got ${ratioL2}`);
+  assert.ok(ratioL1 >= 0.65 && ratioL1 <= 0.80, `Taxicab ratio should be ~0.71, got ${ratioL1}`);
+  assert.ok(ratioLInf >= 1.28 && ratioLInf <= 1.50, `Chebyshev ratio should be ~1.41, got ${ratioLInf}`);
 });
 
-test('Chrono-Inverted Phase-Conjugate wave echo stays bounded over 300 steps', () => {
-  const sim = new Simulation(192, 112, 5);
-  loadChamber(sim, 'chrono-mirror');
-  for (let i = 0; i < 300; i++) {
-    sim.step(1 / 60);
+test('Homogeneous wave fields including Time-Reversed decay passively without clamping', () => {
+  for (const law of [
+    LAW_INDEX.EUCLIDEAN,
+    LAW_INDEX.TAXICAB,
+    LAW_INDEX.CHEBYSHEV,
+    LAW_INDEX.CHRONO,
+    LAW_INDEX.ARISTOTELIAN,
+    LAW_INDEX.QUANTIZED,
+  ]) {
+    const sim = new Simulation(100, 100, 5);
+    sim.manifold.fill(law);
+    sim.waveField.injectWorld(250, 250, 1.2, 2.2);
+
+    for (let i = 0; i < 30; i++) sim.waveField.step();
+    const eEarly = sim.waveField.totalEnergy;
+
+    for (let i = 0; i < 570; i++) sim.waveField.step();
+    const eLate = sim.waveField.totalEnergy;
+
+    assert.equal(sim.waveField.clampedCount, 0, `Law ${law} hit emergency clamp`);
+    assert.ok(eLate < eEarly, `Law ${law} should decay passively: e30=${eEarly}, e600=${eLate}`);
   }
-  assert.ok(Number.isFinite(sim.waveField.totalEnergy));
-  assert.ok(sim.waveField.totalEnergy >= 0 && sim.waveField.totalEnergy < 50000);
 });
 
-test('Chamber 4: Fault-Line Half-Adder executes full binary truth table (00, 10, 01, 11) via physics', () => {
-  function runHalfAdder(enableA, enableB) {
+test('Hyperbolic acceleration and wave speed depend strictly on local painted region', () => {
+  const sim = new Simulation(192, 112, 5);
+  sim.manifold.paintCircle(220, 220, 60, LAW_INDEX.HYPERBOLIC);
+  sim.manifold.paintCircle(740, 340, 60, LAW_INDEX.HYPERBOLIC);
+
+  const [ax1, ay1] = sim.manifold.hyperbolicAcceleration(205, 220, 100, 0);
+  const [ax2, ay2] = sim.manifold.hyperbolicAcceleration(725, 340, 100, 0);
+
+  assert.ok(Math.hypot(ax1, ay1) > 0, 'Expected non-zero local hyperbolic geodesic acceleration');
+  assert.ok(
+    Math.abs(ax1 - ax2) < 1e-6 && Math.abs(ay1 - ay2) < 1e-6,
+    `Hyperbolic acceleration must be translation-invariant: (${ax1},${ay1}) vs (${ax2},${ay2})`
+  );
+});
+
+test('Half-Adder executes full binary truth table across -10% to +10% emitter speeds', () => {
+  function runHalfAdder(enableA, enableB, speed = 140) {
     const sim = new Simulation(192, 112, 5);
     loadChamber(sim, 'half-adder');
     const emA = sim.emitters.find((e) => e.id === 'input-a');
     const emB = sim.emitters.find((e) => e.id === 'input-b');
     emA.enabled = enableA;
     emB.enabled = enableB;
+    emA.speed = speed;
+    emB.speed = speed;
     sim.resetDetectors();
     sim.pulseAllEnabledEmitters();
 
-    // Simulate 4.5 seconds (270 steps at 60Hz)
-    for (let i = 0; i < 270; i++) {
+    for (let i = 0; i < 300; i++) {
       sim.step(1 / 60);
     }
 
-    const sumDet = sim.detectors.find((d) => d.id === 'det-sum');
-    const carryDet = sim.detectors.find((d) => d.id === 'det-carry');
     return {
-      sum: sumDet.hitCount > 0 ? 1 : 0,
-      carry: carryDet.hitCount > 0 ? 1 : 0,
-      sumHits: sumDet.hitCount,
-      carryHits: carryDet.hitCount,
+      sum: sim.detectors.find((d) => d.id === 'det-sum').hitCount > 0 ? 1 : 0,
+      carry: sim.detectors.find((d) => d.id === 'det-carry').hitCount > 0 ? 1 : 0,
     };
   }
 
-  const r00 = runHalfAdder(false, false);
-  const r10 = runHalfAdder(true, false);
-  const r01 = runHalfAdder(false, true);
-  const r11 = runHalfAdder(true, true);
-
-  assert.deepEqual({ sum: r00.sum, carry: r00.carry }, { sum: 0, carry: 0 }, `00 failed: ${JSON.stringify(r00)}`);
-  assert.deepEqual({ sum: r10.sum, carry: r10.carry }, { sum: 1, carry: 0 }, `10 failed: ${JSON.stringify(r10)}`);
-  assert.deepEqual({ sum: r01.sum, carry: r01.carry }, { sum: 1, carry: 0 }, `01 failed: ${JSON.stringify(r01)}`);
-  assert.deepEqual({ sum: r11.sum, carry: r11.carry }, { sum: 0, carry: 1 }, `11 failed: ${JSON.stringify(r11)}`);
+  for (const speed of [126, 140, 154]) {
+    assert.deepEqual(runHalfAdder(false, false, speed), { sum: 0, carry: 0 }, `00 at speed=${speed}`);
+    assert.deepEqual(runHalfAdder(true, false, speed), { sum: 1, carry: 0 }, `10 at speed=${speed}`);
+    assert.deepEqual(runHalfAdder(false, true, speed), { sum: 1, carry: 0 }, `01 at speed=${speed}`);
+    assert.deepEqual(runHalfAdder(true, true, speed), { sum: 0, carry: 1 }, `11 at speed=${speed}`);
+  }
 });
 
-test('Chamber 3: Paradox Pendulum maintains sustained fault-line limit-cycle oscillations', () => {
+test('Border Oscillator maintains sustained limit-cycle crossings', () => {
   const sim = new Simulation(192, 112, 5);
   loadChamber(sim, 'paradox-pendulum');
   for (let i = 0; i < 600; i++) {
     sim.step(1 / 60);
   }
-  assert.equal(sim.particles.length, 3, 'All 3 chimera oscillators should remain alive');
+  assert.equal(sim.particles.length, 3, 'All 3 oscillators should remain alive');
   const totalCrossings = sim.particles.reduce((acc, p) => acc + p.crossings, 0);
-  assert.ok(totalCrossings >= 12, `Expected repeated fault-line crossings, got ${totalCrossings}`);
+  assert.ok(totalCrossings >= 12, `Expected repeated border crossings, got ${totalCrossings}`);
 });
 
-test('Chamber 2: Metric Diode demonstrates asymmetric transmission vs TIR', () => {
+test('L1 / L2 Angle Diode demonstrates asymmetric transmission vs TIR', () => {
   const sim = new Simulation(192, 112, 5);
   loadChamber(sim, 'metric-diode');
   for (let i = 0; i < 420; i++) {
@@ -174,21 +198,22 @@ test('Chamber 2: Metric Diode demonstrates asymmetric transmission vs TIR', () =
   const blockDet = sim.detectors.find((d) => d.id === 'det-block');
   const tirDet = sim.detectors.find((d) => d.id === 'det-tir');
 
-  assert.ok(passDet.hitCount > 0, `Expected upper beam to transmit into PASS, got ${passDet.hitCount}`);
-  assert.equal(blockDet.hitCount, 0, `Expected lower beam to be blocked by TIR, got ${blockDet.hitCount}`);
-  assert.ok(tirDet.hitCount > 0, `Expected lower beam to reflect into TIR ECHO, got ${tirDet.hitCount}`);
+  assert.ok(passDet.hitCount > 0);
+  assert.equal(blockDet.hitCount, 0);
+  assert.ok(tirDet.hitCount > 0);
 });
 
-test('All 6 chambers run stably and export/import JSON cleanly', () => {
+test('All 6 presets run 1,200 steps cleanly with zero wave clamping and valid JSON roundtrip', () => {
   for (const ch of CHAMBERS) {
     const sim = new Simulation(192, 112, 5);
     loadChamber(sim, ch.id);
-    for (let i = 0; i < 60; i++) {
+    for (let i = 0; i < 1200; i++) {
       sim.step(1 / 60);
     }
-    assert.ok(Number.isFinite(sim.waveField.totalEnergy), `Chamber ${ch.id} wave energy non-finite`);
+    assert.equal(sim.waveField.clampedCount, 0, `Preset ${ch.id} hit emergency wave clamp`);
+    assert.ok(sim.waveField.maxAbsU < 4.5, `Preset ${ch.id} wave amplitude too high: ${sim.waveField.maxAbsU}`);
     for (const p of sim.particles) {
-      assert.ok(Number.isFinite(p.x) && Number.isFinite(p.y), `Chamber ${ch.id} particle NaN`);
+      assert.ok(Number.isFinite(p.x) && Number.isFinite(p.y));
     }
   }
 
