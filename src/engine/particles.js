@@ -93,7 +93,6 @@ export function resolveFaultTransition(vx, vy, fromLaw, toLaw, nx, ny) {
 
   const eBefore = metricEnergy(fromLaw, vx, vy);
 
-  // Metric Total Internal Reflection when generalized Snell angle exceeds critical angle
   if (Math.abs(sinThetaR) >= 0.992) {
     const rvx = vx - 2 * vn * nX;
     const rvy = vy - 2 * vn * nY;
@@ -104,7 +103,8 @@ export function resolveFaultTransition(vx, vy, fromLaw, toLaw, nx, ny) {
       vy: rvy,
       thetaI,
       thetaR: thetaI,
-      defect: Math.abs(eBefore - eAfter) + 0.35 * eBefore,
+      defect: Math.abs(eAfter - eBefore),
+      impulse: Math.hypot(rvx - vx, rvy - vy),
       reflected: true,
     };
   }
@@ -150,7 +150,8 @@ export function resolveFaultTransition(vx, vy, fromLaw, toLaw, nx, ny) {
     vy: outVy,
     thetaI,
     thetaR,
-    defect: Math.abs(eBefore - eAfter),
+    defect: Math.abs(eAfter - eBefore),
+    impulse: Math.hypot(outVx - vx, outVy - vy),
     reflected: false,
   };
 }

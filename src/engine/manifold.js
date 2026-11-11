@@ -13,6 +13,7 @@ export class Manifold {
     this.grid = new Uint8Array(cols * rows);
     this.faultMask = new Uint8Array(cols * rows);
     this.faultIntensity = new Float32Array(cols * rows);
+    this.hyperbolicDepth = new Float32Array(cols * rows);
     this.version = 0;
     this.undoStack = [];
     this.redoStack = [];
@@ -184,7 +185,13 @@ export class Manifold {
 
   rebuildFaultMask() {
     this.faultMask.fill(0);
-    const { cols, rows, grid, faultMask } = this;
+    this.hyperbolicDepth.fill(0);
+    const { cols, rows, grid, faultMask, hyperbolicDepth } = this;
+    const size = cols * rows;
+    const queue = new Int32Array(size);
+    let qHead = 0;
+    let qTail = 0;
+
     for (let y = 0; y < rows; y++) {
       const rowOffset = y * cols;
       for (let x = 0; x < cols; x++) {
@@ -196,8 +203,58 @@ export class Manifold {
         else if (y + 1 < rows && grid[idx + cols] !== here) isFault = 1;
         else if (y > 0 && grid[idx - cols] !== here) isFault = 1;
         faultMask[idx] = isFault;
+
+        if (here === LAW_INDEX.HYPERBOLIC) {
+          const atEdge = x === 0 || x === cols - 1 || y === 0 || y === rows - 1;
+          if (isFault || atEdge) {
+            hyperbolicDepth[idx] = 1;
+            queue[qTail++] = idx;
+          }
+        }
       }
     }
+
+    // BFS inward from each painted Hyperbolic border so conformal depth is strictly local to the painted region.
+    while (qHead < qTail) {
+      const idx = queue[qHead++];
+      const d = hyperbolicDepth[idx] + 1;
+      const x = idx % cols;
+      const y = (idx - x) / cols;
+
+      if (x + 1 < cols && grid[idx + 1] === LAW_INDEX.HYPERBOLIC && hyperbolicDepth[idx + 1] === 0) {
+        hyperbolicDepth[idx + 1] = d;
+        queue[qTail++] = idx + 1;
+      }
+      if (x > 0 && grid[idx - 1] === LAW_INDEX.HYPERBOLIC && hyperbolicDepth[idx - 1] === 0) {
+        hyperbolicDepth[idx - 1] = d;
+        queue[qTail++] = idx - 1;
+      }
+      if (y + 1 < rows && grid[idx + cols] === LAW_INDEX.HYPERBOLIC && hyperbolicDepth[idx + cols] === 0) {
+        hyperbolicDepth[idx + cols] = d;
+        queue[qTail++] = idx + cols;
+      }
+      if (y > 0 && grid[idx - cols] === LAW_INDEX.HYPERBOLIC && hyperbolicDepth[idx - cols] === 0) {
+        hyperbolicDepth[idx - cols] = d;
+        queue[qTail++] = idx - cols;
+      }
+    }
+
+    // One smoothing pass to reduce staircase anisotropy in local depth gradients.
+    if (qTail > 0) {
+      const smoothed = new Float32Array(hyperbolicDepth);
+      for (let y = 1; y < rows - 1; y++) {
+        const row = y * cols;
+        for (let x = 1; x < cols - 1; x++) {
+          const idx = row + x;
+          if (grid[idx] !== LAW_INDEX.HYPERBOLIC) continue;
+          smoothed[idx] =
+            0.5 * hyperbolicDepth[idx] +
+            0.125 * (hyperbolicDepth[idx - 1] + hyperbolicDepth[idx + 1] + hyperbolicDepth[idx - cols] + hyperbolicDepth[idx + cols]);
+        }
+      }
+      this.hyperbolicDepth.set(smoothed);
+    }
+
     this.version++;
   }
 
@@ -269,25 +326,27 @@ export class Manifold {
     return [fallbackVx / vmag, fallbackVy / vmag];
   }
 
-  /**
-   * Computes a smooth conformal potential gradient inside Hyperbolic regions
-   * so trajectories visibly curve along non-Euclidean geodesics.
-   */
   hyperbolicAcceleration(wx, wy, vx, vy) {
-    // Radial conformal metric centered on each Hyperbolic pocket's local distance to nearest non-H edge,
-    // approximated smoothly via a multi-harmonic Poincaré-style radial potential.
-    const cx = this.worldWidth * 0.5;
-    const cy = this.worldHeight * 0.5;
-    const dx = (wx - cx) / this.worldWidth;
-    const dy = (wy - cy) / this.worldHeight;
+    const [cx, cy] = this.worldToCell(wx, wy);
+    const { cols, rows, hyperbolicDepth } = this;
+    const xL = Math.max(0, cx - 1);
+    const xR = Math.min(cols - 1, cx + 1);
+    const yU = Math.max(0, cy - 1);
+    const yD = Math.min(rows - 1, cy + 1);
+
+    const dL = hyperbolicDepth[cy * cols + xL];
+    const dR = hyperbolicDepth[cy * cols + xR];
+    const dU = hyperbolicDepth[yU * cols + cx];
+    const dD = hyperbolicDepth[yD * cols + cx];
+
+    const gradX = (dR - dL) * 0.015;
+    const gradY = (dD - dU) * 0.015;
     const speed2 = vx * vx + vy * vy;
-    // Christoffel geodesic curvature bends paths outward/around hyperbolic saddle curvature
-    const gradX = -1.6 * dx;
-    const gradY = -1.6 * dy;
     const vDotG = vx * gradX + vy * gradY;
-    // Γ^k_ij v^i v^j term for conformal metric ds^2 = e^{2φ}(dx^2+dy^2): a = speed^2 ∇φ - 2 (v·∇φ) v
-    const ax = (speed2 * gradX - 2 * vDotG * vx) * 0.045;
-    const ay = (speed2 * gradY - 2 * vDotG * vy) * 0.045;
+
+    // Geodesic equation for conformal metric ds^2 = e^{2φ}(dx^2+dy^2): a = |v|^2 ∇φ - 2(v·∇φ)v
+    const ax = (speed2 * gradX - 2 * vDotG * vx) * 0.04;
+    const ay = (speed2 * gradY - 2 * vDotG * vy) * 0.04;
     return [ax, ay];
   }
 

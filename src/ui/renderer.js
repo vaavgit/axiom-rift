@@ -308,9 +308,9 @@ export class ManifoldRenderer {
         continue;
       }
 
-      const amp = Math.min(1.0, absVal * 0.92 + energyAcc[i] * 0.25);
-      const crest = val > 0 ? Math.min(1, val * 0.55) : 0;
-      const trough = val < 0 ? Math.min(1, -val * 0.55) : 0;
+      const amp = Math.min(1.0, absVal * 1.55 + energyAcc[i] * 0.4);
+      const crest = val > 0 ? Math.min(1, val * 0.9) : 0;
+      const trough = val < 0 ? Math.min(1, -val * 0.9) : 0;
 
       // Positive crests illuminate in law color + bright core; negative troughs tint cool deep violet/cyan
       let r = rgb[0] * amp + crest * 80 + trough * 24 + glow * 255;

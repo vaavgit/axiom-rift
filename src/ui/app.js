@@ -232,7 +232,7 @@ canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 canvas.addEventListener('pointerdown', (ev) => {
   const pos = canvasToWorld(ev);
   if (ev.button === 2) {
-    sim.waveField.injectWorld(pos.x, pos.y, 3.2, 2.5);
+    sim.waveField.injectWorld(pos.x, pos.y, 1.2, 2.4);
     return;
   }
 
@@ -246,7 +246,7 @@ canvas.addEventListener('pointerdown', (ev) => {
     refreshUndoButtons();
     sim.manifold.paintCircle(pos.x, pos.y, state.brushRadius, state.paintLaw);
   } else if (state.tool === 'pulse') {
-    sim.waveField.injectWorld(pos.x, pos.y, 3.0, 2.3);
+    sim.waveField.injectWorld(pos.x, pos.y, 1.15, 2.3);
   } else if (state.tool === 'detector') {
     sim.addDetector({
       label: `DET ${sim.detectors.length + 1}`,
@@ -339,7 +339,7 @@ canvas.addEventListener('pointerup', (ev) => {
       speed,
       interval: 0.75,
       mode: 'hybrid',
-      waveAmp: 2.2,
+      waveAmp: 1.0,
     });
     showToast(`Placed Emitter E${sim.emitters.length}`);
   }

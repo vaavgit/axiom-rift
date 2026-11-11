@@ -191,15 +191,17 @@ export class Simulation {
 
     const transitionHandler = (p, fromLaw, toLaw, res) => {
       const defect = res.defect || 0;
+      const impulse = res.impulse || 0;
+      const visualMagnitude = defect + impulse * 18;
       this.stepDefectAccum += defect;
-      this.manifold.exciteFaultAtWorld(p.x, p.y, Math.min(1.0, 0.25 + defect * 0.0002));
+      this.manifold.exciteFaultAtWorld(p.x, p.y, Math.min(1.0, 0.22 + visualMagnitude * 0.00018));
 
-      if (this.enableWaves && defect > 40) {
-        const amp = Math.min(1.5, 0.35 + defect * 0.00018);
+      if (this.enableWaves && visualMagnitude > 250) {
+        const amp = Math.min(0.55, 0.16 + visualMagnitude * 0.00005);
         this.waveField.injectWorld(p.x, p.y, amp, 1.4);
       }
 
-      this.spawnDefectSpark(p.x, p.y, res.outcome, defect);
+      this.spawnDefectSpark(p.x, p.y, res.outcome, visualMagnitude);
 
       const evt = {
         time: this.time,
@@ -211,6 +213,7 @@ export class Simulation {
         thetaI: (res.thetaI * 180) / Math.PI,
         thetaR: (res.thetaR * 180) / Math.PI,
         defect,
+        impulse,
       };
       this.events.unshift(evt);
       if (this.events.length > 28) {
@@ -232,8 +235,8 @@ export class Simulation {
 
     if (this.enableCollisions && this.particles.length > 1) {
       resolveParticleCollisions(this.particles, (a, b, cx, cy, impulse) => {
-        if (this.enableWaves && impulse > 20) {
-          this.waveField.injectWorld(cx, cy, Math.min(1.8, impulse * 0.008), 1.6);
+        if (this.enableWaves && impulse > 25) {
+          this.waveField.injectWorld(cx, cy, Math.min(0.65, impulse * 0.003), 1.6);
         }
         this.pushSpark({
           x: cx,

@@ -58,7 +58,7 @@ export const CHAMBERS = [
         spread: 0.95,
         interval: 0.42,
         mode: 'hybrid',
-        waveAmp: 2.6,
+        waveAmp: 1.15,
         particleLife: 11.0,
       });
 
@@ -72,7 +72,7 @@ export const CHAMBERS = [
         interval: 1.45,
         phaseOffset: 0.4,
         mode: 'wave',
-        waveAmp: 2.5,
+        waveAmp: 1.1,
       });
 
       sim.addEmitter({
@@ -85,7 +85,7 @@ export const CHAMBERS = [
         interval: 1.45,
         phaseOffset: 0.9,
         mode: 'wave',
-        waveAmp: 2.5,
+        waveAmp: 1.1,
       });
     },
   },
@@ -132,7 +132,7 @@ export const CHAMBERS = [
         speed: 140,
         interval: 0.55,
         mode: 'hybrid',
-        waveAmp: 2.1,
+        waveAmp: 1.0,
       });
 
       sim.addEmitter({
@@ -145,7 +145,7 @@ export const CHAMBERS = [
         interval: 0.55,
         phaseOffset: 0.25,
         mode: 'hybrid',
-        waveAmp: 2.1,
+        waveAmp: 1.0,
       });
 
       sim.addDetector({ id: 'det-pass', label: 'TRANSMIT', x: 760, y: 150, radius: 26 });
@@ -214,7 +214,7 @@ export const CHAMBERS = [
         speed: 120,
         interval: 2.2,
         mode: 'wave',
-        waveAmp: 2.3,
+        waveAmp: 1.0,
       });
     },
   },
@@ -266,7 +266,7 @@ export const CHAMBERS = [
         speed: 140,
         interval: 0, // Triggered synchronously via Logic Pulse or auto-cycle
         mode: 'hybrid',
-        waveAmp: 2.0,
+        waveAmp: 0.9,
         particleLife: 6.5,
         particleRadius: 5.0,
         enabled: true,
@@ -282,7 +282,7 @@ export const CHAMBERS = [
         speed: 140,
         interval: 0,
         mode: 'hybrid',
-        waveAmp: 2.0,
+        waveAmp: 0.9,
         particleLife: 6.5,
         particleRadius: 5.0,
         enabled: true,
@@ -360,7 +360,7 @@ export const CHAMBERS = [
         spread: 0.7,
         interval: 1.15,
         mode: 'hybrid',
-        waveAmp: 3.0,
+        waveAmp: 1.2,
       });
     },
   },
@@ -413,7 +413,7 @@ export const CHAMBERS = [
         spread: Math.PI * 2,
         interval: 0.45,
         mode: 'hybrid',
-        waveAmp: 2.3,
+        waveAmp: 1.0,
         particleLife: 13.0,
       });
 

@@ -157,7 +157,8 @@ export class TelemetryPanel {
 
       const mathLine = document.createElement('div');
       mathLine.className = 'event-math';
-      mathLine.textContent = `θᵢ=${e.thetaI.toFixed(1)}° → θᵣ=${e.thetaR.toFixed(1)}° · ΔH=${e.defect.toFixed(0)}`;
+      const dp = Number.isFinite(e.impulse) ? e.impulse.toFixed(0) : '0';
+      mathLine.textContent = `θᵢ=${e.thetaI.toFixed(1)}° -> θᵣ=${e.thetaR.toFixed(1)}° | Δp=${dp} | ΔH=${e.defect.toFixed(0)}`;
 
       row.append(lawsLine, mathLine);
       fragment.appendChild(row);

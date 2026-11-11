@@ -50,7 +50,8 @@ export class FaultLineSynth {
     this.lastVoiceMs = nowMs;
 
     const now = this.ctx.currentTime;
-    const defectNorm = Math.min(1, Math.sqrt(Math.max(0, evt.defect)) / 140);
+    const magnitude = Math.max(0, evt.defect || 0) + (evt.impulse || 0) * 18;
+    const defectNorm = Math.min(1, Math.sqrt(magnitude) / 140);
     const ratioIdx = Math.min(
       JUST_RATIOS.length - 1,
       Math.floor(defectNorm * (JUST_RATIOS.length - 1))
